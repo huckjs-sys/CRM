@@ -4,7 +4,11 @@ use ChurchCRM\Authentication\AuthenticationManager;
 use ChurchCRM\dto\Cart;
 use ChurchCRM\dto\Photo;
 use ChurchCRM\Exceptions\PhotoSizeException;
+use ChurchCRM\model\ChurchCRM\EventAttendQuery;
 use ChurchCRM\model\ChurchCRM\ListOptionQuery;
+use ChurchCRM\model\ChurchCRM\NoteQuery;
+use ChurchCRM\model\ChurchCRM\Person2group2roleP2g2rQuery;
+use ChurchCRM\model\ChurchCRM\PersonVolunteerOpportunityQuery;
 use ChurchCRM\Service\SystemService;
 use ChurchCRM\Slim\Middleware\Request\Auth\DeleteRecordRoleAuthMiddleware;
 use ChurchCRM\Slim\Middleware\Request\Auth\EditRecordsRoleAuthMiddleware;
@@ -223,6 +227,33 @@ $app->group('/person/{personId:[0-9]+}', function (RouteCollectorProxy $group): 
         if (AuthenticationManager::getCurrentUser()->getId() === (int) $person->getId()) {
             throw new HttpForbiddenException($request, gettext("Can't delete yourself"));
         }
+
+        // Block-if-in-use: refuse delete while the person still has notes,
+        // group memberships, attendance history, or volunteer assignments
+        // pointing at them. Cascade would silently erase history; blocking
+        // surfaces dependent data so the caller can resolve it deliberately.
+        // See #8668.
+        $personId = (int) $person->getId();
+        $noteCount = NoteQuery::create()->filterByPerId($personId)->count();
+        $membershipCount = Person2group2roleP2g2rQuery::create()->filterByPersonId($personId)->count();
+        $attendanceCount = EventAttendQuery::create()->filterByPersonId($personId)->count();
+        $volunteerCount = PersonVolunteerOpportunityQuery::create()->filterByPersonId($personId)->count();
+
+        if ($noteCount + $membershipCount + $attendanceCount + $volunteerCount > 0) {
+            return SlimUtils::renderErrorJSON(
+                $response,
+                sprintf(
+                    gettext('Cannot delete person: %d notes, %d group memberships, %d attendance records, %d volunteer assignments still reference them.'),
+                    $noteCount,
+                    $membershipCount,
+                    $attendanceCount,
+                    $volunteerCount
+                ),
+                [],
+                409
+            );
+        }
+
         $person->delete();
 
         return SlimUtils::renderSuccessJSON($response);
