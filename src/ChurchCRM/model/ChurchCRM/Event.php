@@ -51,7 +51,7 @@ class Event extends BaseEvent
         CalendarEventQuery::create()->filterByEventId($eventId)->delete($con);
         EventAudienceQuery::create()->filterByEventId($eventId)->delete($con);
         EventAttendQuery::create()->filterByEventId($eventId)->delete($con);
-        KioskAssignmentQuery::create()->filterByKasmEventid($eventId)->delete($con);
+        KioskAssignmentQuery::create()->filterByEventId($eventId)->delete($con);
 
         return parent::preDelete($con);
     }
