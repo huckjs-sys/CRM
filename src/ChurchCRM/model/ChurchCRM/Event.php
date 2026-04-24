@@ -4,11 +4,12 @@ namespace ChurchCRM\model\ChurchCRM;
 
 use ChurchCRM\Authentication\AuthenticationManager;
 use ChurchCRM\dto\SystemURLs;
-use ChurchCRM\model\ChurchCRM\Base\CalendarEventQuery;
 use ChurchCRM\model\ChurchCRM\Base\Event as BaseEvent;
-use ChurchCRM\model\ChurchCRM\Base\EventAttendQuery;
-use ChurchCRM\model\ChurchCRM\Base\EventAudienceQuery;
-use ChurchCRM\model\ChurchCRM\Base\KioskAssignmentQuery;
+use ChurchCRM\model\ChurchCRM\CalendarEventQuery;
+use ChurchCRM\model\ChurchCRM\EventAttendQuery;
+use ChurchCRM\model\ChurchCRM\EventAudienceQuery;
+use ChurchCRM\model\ChurchCRM\EventCountsQuery;
+use ChurchCRM\model\ChurchCRM\KioskAssignmentQuery;
 use Propel\Runtime\ActiveQuery\Criteria;
 use Propel\Runtime\Connection\ConnectionInterface;
 use Propel\Runtime\Map\TableMap;
@@ -37,10 +38,11 @@ class Event extends BaseEvent
      * and surface as "phantom" check-ins, audience links, etc.
      *
      * Handled here:
-     *  - calendar_event         (which calendars the event appears on)
-     *  - event_audience         (group audience links — cross-ref table)
+     *  - calendar_event           (which calendars the event appears on)
+     *  - event_audience           (group audience links — cross-ref table)
      *  - eventattend_event_attend (attendance records)
-     *  - kioskassignment_kasm    (kiosk → event pins)
+     *  - kioskassignment_kasm     (kiosk → event pins)
+     *  - eventcounts_evtcnt       (per-event counts — no DB-level FK cascade)
      *
      * See #8670.
      */
@@ -52,6 +54,7 @@ class Event extends BaseEvent
         EventAudienceQuery::create()->filterByEventId($eventId)->delete($con);
         EventAttendQuery::create()->filterByEventId($eventId)->delete($con);
         KioskAssignmentQuery::create()->filterByEventId($eventId)->delete($con);
+        EventCountsQuery::create()->filterByEvtcntEventid($eventId)->delete($con);
 
         return parent::preDelete($con);
     }
